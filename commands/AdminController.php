@@ -26,7 +26,7 @@ class AdminController extends Controller {
      */
     private $_authManager;
     private $_propertyMap = [
-        'assignment' => ['assign', 'create-role', 'create-permission', 'add-role-user', 'add-role-child-role', 'add-role-child-permission'],
+        'assignment' => ['assign', 'create-role', 'create-permission', 'remove-role', 'remove-permission', 'add-role-user', 'add-role-child-role', 'add-role-child-permission'],
         'string' => ['assignment-table', 'item-child-table', 'item-table', 'rule-table']
     ];
 
@@ -54,131 +54,86 @@ class AdminController extends Controller {
 
     /*
      * =========================================================================
-     *                          User Linkage
+     *                Operations dealing with User-Role Linkage
      * =========================================================================
      */
 
     /**
      * 
+     * Assigns a role to a user
      * 
-     * 
-     * @param string $roleName
-     * @param string $userName
+     * @param string $role  Named role
+     * @param string $email (Unique) email linked to user account 
      * @return int exitCode - 0 default, else error code
      */
-    public function actionAssign($roleName, $email)
+    public function actionAssign($role, $email)
     {
-        return $this->_userFn($email, $roleName, 'getRole', 'assign');
+        return $this->_fnUser($email, 'assign', $role);
     }
 
     /**
-     * 
      * Revokes a role from a user
      * 
-     * @param string $roleName
-     * @param string $email
+     * @param string $role  Named role
+     * @param string $email (Unique) email linked to user account 
      * @return int exitCode - 0 default, else error code
      */
-    public function actionRevoke($roleName, $email)
+    public function actionRevoke($role, $email)
     {
-        return $this->_userFn($email, $roleName, 'getRole', 'revoke');
+        return $this->_fnUser($email, 'revoke', $role);
     }
 
     /**
-     * Private function used for assign and revoke actions
+     * Revokes all roles from a user
      * 
      * @param type $email
-     * @param type $link
-     * @param type $sfn
-     * @param type $lfn - The function used for linking
      * @return type
      */
-    private function _userFn($email, $link, $sfn, $lfn)
+    public function actionRevokeAll($email)
     {
-        //Get User Model ID
-        $userId = $this->_getUserId($email);
-        //Exit when user not found
-        if (!isset($userId)) {
-            return $this->_exitCode;
-        }
-        //Get AuthItem (i.e. role or permission)
-        $item = $this->_authManager->$sfn($link);
-        //Exit when item not found
-        if (!isset($item)) {
-            $this->_exitCode = '300';
-            $this->_msg = 'No such Role';
-            return $this->_exitCode;
-        }
-        //Try linking function
-        try {
-            $this->_authManager->$lfn($item, $userId);
-        } catch (\Exception $e) {
-            $this->_exitCode = $e->getCode();
-            $this->_msg = $e->getMessage();
-        }
-        //Exit with try-catch results
-        return $this->exitCode;
-    }
-
-    private function _getUserId($email)
-    {
-        $userClass = $this->_userClass;
-        try {
-            $user = $userClass::findOne(['email' => $email]);
-            if (!isset($user)) {
-                $this->_msg = 'No such user';
-                $this->_exitCode = '200';
-
-                return NULL;
-            }
-        } catch (\Exception $e) {
-            $this->_msg = $e->getMessage();
-            $this->_exitCode = $e->getCode();
-            return NULL;
-        }
-        return $user->id;
+        return $this->_fnUser($email, 'revokeAll');
     }
 
     /*
      * =========================================================================
-     *                          Auth Item Creation
+     *              Operations performed on Single Auth Item
      * =========================================================================
      */
 
     /**
      * 
-     * @param string $roleName
+     * @param string $name
      */
-    public function actionCreateRole($roleName)
+    public function actionCreateRole($name)
     {
-        return $this->createItem($roleName, 'role');
+        return $this->_fnItem(['type' => 'role', 'fn' => 'add', 'item' => $name, 'new' => TRUE]);
     }
 
     /**
      * 
-     * @param string $permissionName
+     * @param string $name
      */
-    public function actionCreatePermission($permissionName)
+    public function actionCreatePermission($name)
     {
-        return $this->createItem($permissionName, 'permission');
+        return $this->_fnItem(['type' => 'permission', 'fn' => 'add', 'item' => $name, 'new' => TRUE]);
     }
 
-    public function createItem($name, $type)
+    /**
+     * 
+     * @param string $name
+     */
+    public function actionRemoveRole($name)
     {
-        $fn = 'create' . (ucfirst($type));
-        $item = $this->_authManager->$fn($name);
-        try {
-            if ($this->_authManager->add($item)) {
-                $this->_msg = ucfirst($type) . ' added to system.';
-            } else {
-                $this->_exitCode = $type == 'role' ? '1' : '2' . '02';
-                $this->_msg = 'Unhandled Error';
-            }
-        } catch (\Exception $e) {
-            $this->_exitCode = $type == 'role' ? '1' : '2' . '01';
-            $this->_msg = $e->getMessage();
-        }
-        return $this->_exitCode;
+        return $this->_fnItem(['type' => 'role', 'fn' => 'remove', 'item' => $name]);
+    }
+
+    /**
+     * 
+     * @param string $name
+     */
+    public function actionRemovePermission($name)
+    {
+        return $this->_fnItem(['type' => 'permission', 'fn' => 'remove', 'item' => $name]);
     }
 
     /*
@@ -188,24 +143,68 @@ class AdminController extends Controller {
      * 
      */
 
-    public function actionAddChildRoleToRole($parentName, $childName)
+    /**
+     * 
+     * Adds a child role to a parent role 
+     * 
+     * @param string $parent The parent named role
+     * @param string $child The child named role
+     * @return type
+     */
+    public function actionAddChildRole($parent, $child)
     {
-        
+        return $this->_fnChild(['proc' => 'addChild', 'from' => 'role', 'to' => 'role', 'parent' => $parent, 'child' => $child]);
     }
 
-    public function actionAddChildPermissionToPermission($parentName, $childName)
+    /**
+     *
+     * Adds a child permission to a parent role-or-permission
+     * If the parent is a role or permission is set by parameter, by default this method links to parent roles
+     *  
+     * @param type $parent The parent named role
+     * @param type $child The child named role
+     * @param type $alt Set to TRUE to link to a parent permission, else to a parent role (default FALSE)
+     * @return type
+     */
+    public function actionAddChildPermission($parent, $child, $alt = FALSE)
     {
-        
+        return $this->_fnChild(['proc' => 'addChild', 'from' => $alt == FALSE ? 'role' : 'permisison', 'to' => 'permission', 'parent' => $parent, 'child' => $child]);
     }
 
-    public function actionAddChildPermissionToRole($parentName, $childName)
+    /**
+     * 
+     * @param type $parent
+     * @param type $child
+     * @return type
+     */
+    public function actionRemoveChildRole($parent, $child)
     {
-        $this->_addChild(['from' => 'role', 'to' => 'permission', 'parent' => $parentName, 'child' => $childName]);
+
+        return $this->_fnChild(['proc' => 'removeChild', 'from' => 'role', 'to' => 'role', 'parent' => $parent, 'child' => $child]);
     }
 
-    private function _addChild($config)
+    /**
+     * Removes a child permission from a parent role-or-permission
+     * If the parent is a role or permission is set by parameter, by default this method links to parent roles
+     *  
+     * @param type $parent The parent named role
+     * @param type $child The child named role
+     * @param type $alt Set to TRUE to remove from a parent permission, else from a parent role (default FALSE)
+     * @return type
+     */
+    public function actionRemoveChildPermission($parent, $child, $alt = FALSE)
     {
-        
+        return $this->_fnChild(['proc' => 'removeChild', 'from' => $alt == FALSE ? 'role' : 'permisison', 'to' => 'permission', 'parent' => $parent, 'child' => $child]);
+    }
+
+    public function actionRemoveRoleChildren($name)
+    {
+        return $this->_fnItem(['type' => 'role', 'name' => $name, 'fn' => 'removeChildren']);
+    }
+
+    public function actionRemovePermissionChildren($name)
+    {
+        return $this->_fnItem(['type' => 'permission', 'name' => $name, 'fn' => 'removeChildren']);
     }
 
     /*
@@ -267,9 +266,164 @@ class AdminController extends Controller {
 
     /*
      * =========================================================================
+     *                        Higher-Order Helpers
+     * =========================================================================
+     */
+
+    /**
+     * Private function used for assignment and revokement actions
+     * 
+     * @param type $email
+     * @param type $link
+     * @param type $sfn
+     * @param type $lfn - The function used for linking
+     * @return type
+     */
+    private function _fnUser($email, $fn, $role = NULL)
+    {
+        //Get User Model ID
+        $userId = $this->_getUserId($email);
+        //Exit when user not found
+        if (!isset($userId)) {
+            return $this->_exitCode;
+        }
+        //Get AuthItem (i.e. role or permission)
+        if (isset($role)) {
+            $item = $this->_authManager->getRole($role);
+            //Exit when item not found
+            if (!isset($item)) {
+                $this->_exitCode = '300';
+                $this->_msg = 'No such Role';
+                return $this->_exitCode;
+            }
+        }
+        //Try linking function
+        try {
+            if (isset($role)) {
+                $this->_authManager->$fn($item, $userId);
+            } else {
+                $this->_authManager->$fn($userId);
+            }
+        } catch (\Exception $e) {
+            $this->_exitCode = $e->getCode();
+            $this->_msg = $e->getMessage();
+        }
+        //Exit with try-catch results
+        return $this->exitCode;
+    }
+
+    /**
+     * 
+     * @param type $config
+     * @return int Exit code, 0 on success, else the error code is returned
+     */
+    private function _fnItem($config)
+    {
+
+        $isNew = isset($config['new']) && $config['new'] == TRUE;
+        $item = $this->_getItem($config['type'], $config['item'], !$isNew);
+
+        if ($this->_exitCode != 0) {
+            return $this->_exitCode;
+        }
+        //Create new auth item if required 
+        if ($isNew) {
+            $createFn = 'create' . ucfirst($config['type']);
+            $item = $this->_authManager->$createFn($config['item']);
+        }
+
+        try {
+            $this->_authManager->$config['fn']($item);
+        } catch (\Exception $e) {
+            $this->_exitCode = $e->getCode();
+            $this->_msg = $e->getMessage();
+        }
+
+
+        return $this->_exitCode;
+    }
+
+    /**
+     * 
+     * @param type $config
+     * @return type
+     */
+    private function _fnChild($config)
+    {
+        $parent = $this->_getItem($config['from'], $config['parent']);
+
+        if ($this->_exitCode != 0) {
+            return$this->_exitCode;
+        }
+        $child = $this->_getItem($config['from'], $config['parent']);
+        if ($this->_exitCode != 0) {
+            return$this->_exitCode;
+        }
+        //Try linking function
+        try {
+            $this->_authManager->$config['proc']($parent, $child);
+        } catch (\Exception $e) {
+            $this->_exitCode = $e->getCode();
+            $this->_msg = $e->getMessage();
+        }
+        //Exit with try-catch results
+        return $this->exitCode;
+    }
+
+    /*
+     * =========================================================================
      *                              Helpers
      * =========================================================================
      */
+
+    /**
+     * Finds user-id using account email address
+     * 
+     * @param type $email (Unique) email linked to user account.
+     * @return int|NULL The user id if found, else NULL is returned
+     */
+    private function _getUserId($email)
+    {
+        $userClass = $this->_userClass;
+        try {
+            $user = $userClass::findOne(['email' => $email]);
+            if (!isset($user)) {
+                $this->_msg = 'No such user';
+                $this->_exitCode = '200';
+
+                return NULL;
+            }
+        } catch (\Exception $e) {
+            $this->_msg = $e->getMessage();
+            $this->_exitCode = $e->getCode();
+            return NULL;
+        }
+        return $user->id;
+    }
+
+    /**
+     * 
+     * @param type $type
+     * @param type $name
+     * @return type
+     */
+    private function _getItem($type, $name, $success = TRUE)
+    {
+        $fn = 'get' . ucfirst($type);
+        try {
+            $item = $this->_authManager->$fn($name);
+            //Populate error message when success flag is met
+            if (isset($item) != $success) {
+                $this->_exitCode = '40' . $success == true ? '0' : '1';
+                $this->_msg = ucfirst($type) . ' with name ' . $name . $success ? ' does not ' : ' already ' . 'exists';
+            }
+        } catch (\Exception $e) {
+            $this->_exitCode = $e->getCode();
+            $this->_msg = $e->getMessage();
+        }
+
+        return $item;
+    }
 
     public function afterAction($action, $result)
     {
