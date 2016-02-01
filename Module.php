@@ -7,7 +7,7 @@ namespace humanized\rbac;
  * @name Yii2 RBAC Module Class 
  * @version 0.1 
  * @author Jeffrey Geyssens <jeffrey@humanized.be>
- * @package yii2-user
+ * @package yii2-rbac
  */
 class Module extends \yii\base\Module {
 
@@ -40,5 +40,7 @@ class Module extends \yii\base\Module {
         $this->params['identityClass'] = $this->identityClass;
         $this->params['fnUser'] = $this->fnUser;
     }
+    
+    
 
 }
