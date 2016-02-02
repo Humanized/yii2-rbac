@@ -17,39 +17,19 @@ use yii\helpers\Console;
  */
 class AdminController extends Controller {
 
-    private $_model;
     private $_userClass;
 
     /**
      *
      * @var \yii\rbac\DbManager 
      */
-    private $_authManager;
-    private $_propertyMap = [
-        'assignment' => ['assign', 'create-role', 'create-permission', 'remove-role', 'remove-permission', 'add-role-user', 'add-role-child-role', 'add-role-child-permission'],
-        'string' => ['assignment-table', 'item-child-table', 'item-table', 'rule-table']
-    ];
+    private $_auth;
 
     public function __construct($id, $module, $config = array())
     {
         parent::__construct($id, $module, $config);
         $this->_userClass = $module->params['identityClass'];
-
-        $this->_authManager = \Yii::$app->authManager;
-    }
-
-    private function findModel($user)
-    {
-        $userClass = $this->_userClass;
-        $fn = $this->_findUser;
-        return $userClass::$fn($user);
-    }
-
-    public function actionIndex()
-    {
-        echo "Welcome to the Yii RBAC Management CLI \n";
-        echo "This tool requires Yii 2.0.7 or later \n";
-        return 0;
+        $this->_auth = \Yii::$app->authManager;
     }
 
     /*
@@ -59,7 +39,6 @@ class AdminController extends Controller {
      */
 
     /**
-     * 
      * Assigns a role to a user
      * 
      * @param string $role  Named role
@@ -68,7 +47,7 @@ class AdminController extends Controller {
      */
     public function actionAssign($role, $email)
     {
-        return $this->_fnUser($email, 'assign', $role);
+        return $this->_fnUser(['email' => $email, 'fn' => 'assign', 'role' => $role]);
     }
 
     /**
@@ -76,22 +55,55 @@ class AdminController extends Controller {
      * 
      * @param string $role  Named role
      * @param string $email (Unique) email linked to user account 
-     * @return int exitCode - 0 default, else error code
+     * @return int exitCode - 0 default, else error code is returned
      */
     public function actionRevoke($role, $email)
     {
-        return $this->_fnUser($email, 'revoke', $role);
+        return $this->_fnUser(['email' => $email, 'fn' => 'revoke', 'role' => $role]);
     }
 
     /**
      * Revokes all roles from a user
      * 
-     * @param type $email
-     * @return type
+     * @param string $email (Unique) email linked to user account 
+     * @return int exitCode - 0 default, else error code is returned
      */
     public function actionRevokeAll($email)
     {
-        return $this->_fnUser($email, 'revokeAll');
+        return $this->_fnUser(['email' => $email, 'fn' => 'revokeAll']);
+    }
+
+    /**
+     * Returns all role assignment information for the specified user.
+     * 
+     * @param string $email (Unique) email linked to user account 
+     * @return int exitCode - 0 default, else error code is returned
+     */
+    public function actionGetAssignments($email)
+    {
+        return $this->_fnUser(['email' => $email, 'fn' => 'getAssignments', 'process' => TRUE]);
+    }
+
+    /**
+     * Returns the roles that are assigned to the user via assign().
+     * 
+     * @param string $email (Unique) email linked to user account 
+     * @return int exitCode - 0 default, else error code is returned
+     */
+    public function actionGetRolesByUser($email)
+    {
+        return $this->_fnUser(['email' => $email, 'fn' => 'getRolesByUser', 'process' => TRUE]);
+    }
+
+    /**
+     * Returns all permissions that the user has
+     * 
+     * @param string $email (Unique) email linked to user account 
+     * @return int exitCode - 0 default, else error code is returned 
+     */
+    public function actionPermissionByUser($email)
+    {
+        return $this->_fnUser(['email' => $email, 'fn' => 'getPermissionByUser', 'process' => TRUE]);
     }
 
     /*
@@ -197,14 +209,24 @@ class AdminController extends Controller {
         return $this->_fnChild(['proc' => 'removeChild', 'from' => $alt == FALSE ? 'role' : 'permisison', 'to' => 'permission', 'parent' => $parent, 'child' => $child]);
     }
 
+    /**
+     * 
+     * @param type $name
+     * @return type
+     */
     public function actionRemoveRoleChildren($name)
     {
-        return $this->_fnItem(['type' => 'role', 'name' => $name, 'fn' => 'removeChildren']);
+        return $this->_fnItem(['type' => 'role', 'item' => $name, 'fn' => 'removeChildren']);
     }
 
+    /**
+     * 
+     * @param type $name
+     * @return type
+     */
     public function actionRemovePermissionChildren($name)
     {
-        return $this->_fnItem(['type' => 'permission', 'name' => $name, 'fn' => 'removeChildren']);
+        return $this->_fnItem(['type' => 'permission', 'item' => $name, 'fn' => 'removeChildren']);
     }
 
     /*
@@ -215,13 +237,17 @@ class AdminController extends Controller {
 
     /**
      * Prints the name of the relevant RBAC database table name to console output 
-     * @return int 0 for Success, else error code
+     * @return int 0 for success, else error code is returned
      */
     public function actionAssignmentTable()
     {
         return $this->_exitCode;
     }
 
+    /**
+     * Prints a list of named (default) roles to console output
+     * @return int 0 for success, else error code is returned
+     */
     public function actionDefaultRoles()
     {
         return $this->_exitCode;
@@ -229,7 +255,7 @@ class AdminController extends Controller {
 
     /**
      * Prints the name of the relevant RBAC database table name to console output 
-     * @return int 0 for Success, else error code
+     * @return int 0 for success, else error code is returned
      */
     public function actionItemChildTable()
     {
@@ -238,18 +264,26 @@ class AdminController extends Controller {
 
     /**
      * Prints the name of the relevant RBAC database table name to console output 
-     * @return int 0 for Success, else error code
+     * @return int 0 for success, else error code is returned
      */
     public function actionItemTable()
     {
         return $this->_exitCode;
     }
 
+    /**
+     * Prints a list of named permissions to console output
+     * @return int 0 for success, else error code is returned
+     */
     public function actionPermissions()
     {
         return $this->_exitCode;
     }
 
+    /**
+     * Prints a list of named permissions to console output
+     * @return int 0 for success, else error code is returned
+     */
     public function actionRoles()
     {
         return $this->_exitCode;
@@ -279,35 +313,26 @@ class AdminController extends Controller {
      * @param type $lfn - The function used for linking
      * @return type
      */
-    private function _fnUser($email, $fn, $role = NULL)
+    private function _fnUser($config)
     {
         //Get User Model ID
-        $userId = $this->_getUserId($email);
+        $userId = $this->_getUserId($config['email']);
         //Exit when user not found
         if (!isset($userId)) {
             return $this->_exitCode;
         }
-        //Get AuthItem (i.e. role or permission)
-        if (isset($role)) {
-            $item = $this->_authManager->getRole($role);
-            //Exit when item not found
-            if (!isset($item)) {
-                $this->_exitCode = '300';
-                $this->_msg = 'No such Role';
-                return $this->_exitCode;
-            }
+        //Get auth item object
+        $item = $this->_getItem('role', $config['role']);
+        //Exit when item not found
+        if (!isset($item)) {
+            return $this->_exitCode;
+        }
+        
+        $result = $this->_linkUser($userId, $item, $config);
+        if (isset($config['process'])) {
+            $this->_processResult($result);
         }
         //Try linking function
-        try {
-            if (isset($role)) {
-                $this->_authManager->$fn($item, $userId);
-            } else {
-                $this->_authManager->$fn($userId);
-            }
-        } catch (\Exception $e) {
-            $this->_exitCode = $e->getCode();
-            $this->_msg = $e->getMessage();
-        }
         //Exit with try-catch results
         return $this->exitCode;
     }
@@ -319,7 +344,6 @@ class AdminController extends Controller {
      */
     private function _fnItem($config)
     {
-
         $isNew = isset($config['new']) && $config['new'] == TRUE;
         $item = $this->_getItem($config['type'], $config['item'], !$isNew);
 
@@ -329,16 +353,18 @@ class AdminController extends Controller {
         //Create new auth item if required 
         if ($isNew) {
             $createFn = 'create' . ucfirst($config['type']);
-            $item = $this->_authManager->$createFn($config['item']);
+            $item = $this->_auth->$createFn($config['item']);
         }
-
         try {
-            $this->_authManager->$config['fn']($item);
+            $result = $this->_auth->$config['fn']($item);
         } catch (\Exception $e) {
             $this->_exitCode = $e->getCode();
             $this->_msg = $e->getMessage();
         }
 
+        if (isset($config['process'])) {
+            $this->_processResult($result);
+        }
 
         return $this->_exitCode;
     }
@@ -361,7 +387,7 @@ class AdminController extends Controller {
         }
         //Try linking function
         try {
-            $this->_authManager->$config['proc']($parent, $child);
+            $this->_auth->$config['proc']($parent, $child);
         } catch (\Exception $e) {
             $this->_exitCode = $e->getCode();
             $this->_msg = $e->getMessage();
@@ -390,7 +416,6 @@ class AdminController extends Controller {
             if (!isset($user)) {
                 $this->_msg = 'No such user';
                 $this->_exitCode = '200';
-
                 return NULL;
             }
         } catch (\Exception $e) {
@@ -403,6 +428,26 @@ class AdminController extends Controller {
 
     /**
      * 
+     * @param type $userId
+     * @param type $item
+     * @param type $config
+     * @return type
+     */
+    private function _linkUser($userId, $item, $config)
+    {
+        try {
+            $sugar = $this->_auth->$config['fn'];
+            $result = (isset($config['role']) ? $sugar($item, $userId) : $sugar($userId));
+        } catch (\Exception $e) {
+            $this->_exitCode = $e->getCode();
+            $this->_msg = $e->getMessage();
+            return NULL;
+        }
+        return $result;
+    }
+
+    /**
+     * 
      * @param type $type
      * @param type $name
      * @return type
@@ -411,7 +456,7 @@ class AdminController extends Controller {
     {
         $fn = 'get' . ucfirst($type);
         try {
-            $item = $this->_authManager->$fn($name);
+            $item = $this->_auth->$fn($name);
             //Populate error message when success flag is met
             if (isset($item) != $success) {
                 $this->_exitCode = '40' . $success == true ? '0' : '1';
@@ -425,49 +470,19 @@ class AdminController extends Controller {
         return $item;
     }
 
-    public function afterAction($action, $result)
+    private function _processResult($result, $mapFn = NULL)
     {
-        // echo $this->preventDefault;
-        $print = NULL;
-        $map = NULL;
-        $this->_setupFunctions($action, $print, $map);
-        $store = parent::afterAction($action, $result);
-
-        if ($store == 0) {
-            $this->$print($action->id, $map);
+        switch (gettype($result)) {
+            case 'array': {
+                    std_out('outputting ' . count($result) . ' values');
+                    array_map($mapFn, $result);
+                    break;
+                }
+            default: {
+                    std_out('output:' . $result);
+                    break;
+                }
         }
-        return $store;
-    }
-
-    private function _setupFunctions($action, &$print, &$map)
-    {
-        if (in_array($action->id, $this->_propertyMap['string'])) {
-            $this->_setupValueFunctions($action, $print, $map);
-        }
-        if (in_array($action->id, $this->_propertyMap['assignment'])) {
-            $this->_setupAssignmentFunction($action, $print, $map);
-        }
-    }
-
-    private function _setupValueFunctions(&$print, &$map)
-    {
-        $map = function($x) {
-            $procName = lcfirst(\yii\helpers\Inflector::id2camel($x));
-            return $this->_authManager->$procName;
-        };
-        $print = 'printValue';
-        $this->_msg = 'Printing property string to output...';
-    }
-
-    private function _setupAssignmentFunction($action, &$print, &$map)
-    {
-        $map = NULL;
-        $print = 'printAssignment';
-    }
-
-    private function _setupValueCollectionFunctions(&$print, &$map)
-    {
-        
     }
 
 }
