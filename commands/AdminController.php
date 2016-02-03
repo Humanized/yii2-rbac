@@ -7,24 +7,28 @@ use yii\helpers\Console;
 
 /**
  * A CLI port of the Yii2 RBAC Manager Interface.
- * 
+ *
  * 
  * @name RBAC Manager CLI
  * @version 0.1
  * @author Jeffrey Geyssens <jeffrey@humanized.be>
- * @package yii2-user
+ * @package yii2-rbac
  *
  */
 class AdminController extends Controller {
 
+    /**
+     * Private pointer to Identity instance (setup through module configuration)
+     * @var \yii\rbac\DbManager 
+     */
     private $_userClass;
 
     /**
-     *
+     * Private pointer to DbManager instance (setup on construction)
      * @var \yii\rbac\DbManager 
      */
     private $_auth;
-
+    
     public function __construct($id, $module, $config = array())
     {
         parent::__construct($id, $module, $config);
@@ -118,6 +122,7 @@ class AdminController extends Controller {
      */
     public function actionCreateRole($name)
     {
+
         return $this->_fnItem(['type' => 'role', 'fn' => 'add', 'item' => $name, 'new' => TRUE]);
     }
 
@@ -327,7 +332,7 @@ class AdminController extends Controller {
         if (!isset($item)) {
             return $this->_exitCode;
         }
-        
+
         $result = $this->_linkUser($userId, $item, $config);
         if (isset($config['process'])) {
             $this->_processResult($result);
