@@ -28,7 +28,7 @@ class AdminController extends Controller {
      * @var \yii\rbac\DbManager 
      */
     private $_auth;
-    
+
     public function __construct($id, $module, $config = array())
     {
         parent::__construct($id, $module, $config);
@@ -339,7 +339,7 @@ class AdminController extends Controller {
         }
         //Try linking function
         //Exit with try-catch results
-        return $this->exitCode;
+        return $this->_exitCode;
     }
 
     /**
@@ -386,7 +386,7 @@ class AdminController extends Controller {
         if ($this->_exitCode != 0) {
             return$this->_exitCode;
         }
-        $child = $this->_getItem($config['from'], $config['parent']);
+        $child = $this->_getItem($config['to'], $config['child']);
         if ($this->_exitCode != 0) {
             return$this->_exitCode;
         }
@@ -398,7 +398,7 @@ class AdminController extends Controller {
             $this->_msg = $e->getMessage();
         }
         //Exit with try-catch results
-        return $this->exitCode;
+        return $this->_exitCode;
     }
 
     /*
