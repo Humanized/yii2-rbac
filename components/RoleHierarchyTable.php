@@ -23,14 +23,13 @@ class RoleHierarchyTable extends \humanized\clihelpers\components\DataTable
     {
 
         $class = get_called_class();
-        echo 'Loading role hierarchy from file: ' . "$class \n";
+        echo 'Loading role hierarchy from file: ' . "$class... ";
         $instance = new $class();
-
-        RbacHelpers::buildLinearRoleHierarchy(array_keys($this->data));
+        RbacHelpers::buildLinearRoleHierarchy(array_keys($instance->data));
         foreach ($instance->data as $record) {
             RbacHelpers::createRolePermissions($record);
         }
-        echo 'Complete';
+        echo 'Done' . "\n";
     }
 
 }
