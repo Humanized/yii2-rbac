@@ -16,7 +16,7 @@ class RbacHelpers
 
         $parent = NULL;
         foreach ($roleNames as $roleName) {
-            $child = \Yii::$app->authManager->createRole($roleName);
+            $child = \Yii::$app->authManager->createRole($roleName);            
             \Yii::$app->authManager->add($child);
             if (isset($parent)) {
                 \Yii::$app->authManager->addChild($parent, $child);
